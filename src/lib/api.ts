@@ -1,4 +1,4 @@
-const API_BASE = '/api';
+const API_BASE = 'https://mallmark-backend.onrender.com/api';
 
 interface FetchOptions extends RequestInit {
   skipAuth?: boolean;
