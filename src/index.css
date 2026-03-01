@@ -8,32 +8,23 @@
   :root {
     --background: 200 14% 92%;
     --foreground: 202 71% 7%;
-
     --card: 0 0% 100%;
     --card-foreground: 202 71% 7%;
-
     --popover: 0 0% 100%;
     --popover-foreground: 202 71% 7%;
-
     --primary: 202 70% 20%;
     --primary-foreground: 200 14% 92%;
-
     --secondary: 204 14% 88%;
     --secondary-foreground: 202 70% 20%;
-
     --muted: 204 14% 88%;
     --muted-foreground: 203 30% 40%;
-
     --accent: 204 18% 75%;
     --accent-foreground: 202 71% 7%;
-
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
-
     --border: 204 18% 82%;
     --input: 204 18% 82%;
     --ring: 202 70% 20%;
-
     --radius: 0.625rem;
 
     --sidebar-background: 202 70% 20%;
@@ -45,7 +36,6 @@
     --sidebar-border: 203 70% 16%;
     --sidebar-ring: 204 18% 75%;
 
-    /* MallMark extended tokens */
     --mallmark-main: 202 70% 20%;
     --mallmark-main-hover: 202 70% 18%;
     --mallmark-main-active: 203 70% 16%;
@@ -107,6 +97,15 @@
   h1, h2, h3, h4, h5, h6 {
     font-family: 'Space Grotesk', 'Inter', sans-serif;
   }
+}
+
+/* Scroll-triggered animation */
+.animate-on-scroll {
+  transition-property: opacity, transform;
+}
+.animate-visible {
+  opacity: 1 !important;
+  transform: translateY(0) !important;
 }
 
 @layer components {
