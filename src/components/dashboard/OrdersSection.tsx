@@ -19,6 +19,8 @@ interface Order {
   totalAmount: number;
   subTotal?: number;
   deliveryFee?: number;
+  finalDeliveryFee?: number;
+  deliveryProfitLoss?: number;
   serviceFee?: number;
   items?: Array<{ productName: string; quantity: number; unitPrice: number; lineTotal: number }>;
   deliveryAddress?: { street?: string; city?: string; state?: string; phone?: string };
@@ -42,7 +44,7 @@ const OrdersSection = ({ type }: OrdersSectionProps) => {
   const [newStatus, setNewStatus] = useState('');
   const [cancelReason, setCancelReason] = useState('');
   const [deliveryModal, setDeliveryModal] = useState<Order | null>(null);
-  const [newDeliveryFee, setNewDeliveryFee] = useState('');
+  const [finalDeliveryFee, setFinalDeliveryFee] = useState('');
   const [updating, setUpdating] = useState(false);
 
   const endpoints: Record<string, string> = {
@@ -99,16 +101,24 @@ const OrdersSection = ({ type }: OrdersSectionProps) => {
   };
 
   const updateDeliveryFee = async () => {
-    if (!deliveryModal || !newDeliveryFee) return;
+    if (!deliveryModal || !finalDeliveryFee) return;
     setUpdating(true);
     try {
-      await apiFetch(`/admin/order/orders/${deliveryModal._id || deliveryModal.id}/delivery-fee`, {
-        method: 'PATCH',
-        body: JSON.stringify({ newDeliveryFee: parseFloat(newDeliveryFee) }),
-      });
-      toast.success('Delivery fee updated');
+      const data = await apiFetch<{ order?: { deliveryProfitLoss?: number }; deliveryProfitLoss?: number }>(
+        `/admin/order/orders/${deliveryModal._id || deliveryModal.id}/delivery-fee`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify({ finalDeliveryFee: parseFloat(finalDeliveryFee) }),
+        }
+      );
+      const profitLoss = data.order?.deliveryProfitLoss ?? data.deliveryProfitLoss ?? (deliveryModal.deliveryFee! - parseFloat(finalDeliveryFee));
+      const isProfit = profitLoss >= 0;
+      toast.success(
+        `Delivery fee updated. Delivery ${isProfit ? 'Profit' : 'Loss'}: ₦${Math.abs(profitLoss).toLocaleString()}`,
+        { style: { borderLeft: `4px solid ${isProfit ? '#16a34a' : '#dc2626'}` } }
+      );
       setDeliveryModal(null);
-      setNewDeliveryFee('');
+      setFinalDeliveryFee('');
       fetchOrders();
     } catch (err: any) {
       toast.error(err.message);
@@ -162,7 +172,7 @@ const OrdersSection = ({ type }: OrdersSectionProps) => {
                             <Button variant="ghost" size="sm" onClick={() => { setStatusModal(order); setNewStatus(order.orderStatus); }}>
                               <RefreshCw className="w-4 h-4" />
                             </Button>
-                            <Button variant="ghost" size="sm" onClick={() => { setDeliveryModal(order); setNewDeliveryFee(String(order.deliveryFee || '')); }}>
+                            <Button variant="ghost" size="sm" onClick={() => { setDeliveryModal(order); setFinalDeliveryFee(String(order.finalDeliveryFee || '')); }}>
                               <Truck className="w-4 h-4" />
                             </Button>
                           </>
@@ -189,8 +199,19 @@ const OrdersSection = ({ type }: OrdersSectionProps) => {
                 <div><span className="text-muted-foreground">Status:</span> <StatusBadge status={selectedOrder.orderStatus} /></div>
                 <div><span className="text-muted-foreground">Total:</span> <strong>₦{selectedOrder.totalAmount?.toLocaleString()}</strong></div>
                 <div><span className="text-muted-foreground">Subtotal:</span> ₦{selectedOrder.subTotal?.toLocaleString()}</div>
-                <div><span className="text-muted-foreground">Delivery:</span> ₦{selectedOrder.deliveryFee?.toLocaleString()}</div>
+                <div><span className="text-muted-foreground">Initial Delivery Fee:</span> ₦{selectedOrder.deliveryFee?.toLocaleString()}</div>
                 <div><span className="text-muted-foreground">Service Fee:</span> ₦{selectedOrder.serviceFee?.toLocaleString()}</div>
+                {selectedOrder.finalDeliveryFee != null && (
+                  <div><span className="text-muted-foreground">Final Delivery Fee:</span> <strong>₦{selectedOrder.finalDeliveryFee.toLocaleString()}</strong></div>
+                )}
+                {selectedOrder.deliveryProfitLoss != null && (
+                  <div>
+                    <span className="text-muted-foreground">Delivery Profit/Loss:</span>{' '}
+                    <strong className={selectedOrder.deliveryProfitLoss >= 0 ? 'text-green-600' : 'text-red-600'}>
+                      {selectedOrder.deliveryProfitLoss >= 0 ? 'Profit' : 'Loss'}: ₦{Math.abs(selectedOrder.deliveryProfitLoss).toLocaleString()}
+                    </strong>
+                  </div>
+                )}
               </div>
 
               {selectedOrder.deliveryAddress && (
@@ -258,9 +279,31 @@ const OrdersSection = ({ type }: OrdersSectionProps) => {
           <DialogHeader>
             <DialogTitle className="font-display">Update Delivery Fee — {deliveryModal?.orderNumber}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-2">
-            <Label>New Delivery Fee (₦)</Label>
-            <Input type="number" value={newDeliveryFee} onChange={e => setNewDeliveryFee(e.target.value)} placeholder="0" />
+          <div className="space-y-4">
+            {deliveryModal && (
+              <div className="p-3 rounded-md bg-muted/40 text-sm">
+                <span className="text-muted-foreground">Initial Delivery Fee (customer paid):</span>{' '}
+                <strong>₦{deliveryModal.deliveryFee?.toLocaleString() || '0'}</strong>
+              </div>
+            )}
+            <div className="space-y-2">
+              <Label>Final Delivery Fee (₦)</Label>
+              <Input type="number" value={finalDeliveryFee} onChange={e => setFinalDeliveryFee(e.target.value)} placeholder="Enter actual delivery cost" />
+            </div>
+            {finalDeliveryFee && deliveryModal?.deliveryFee != null && (
+              <div className="p-3 rounded-md bg-muted/20 text-sm">
+                {(() => {
+                  const diff = deliveryModal.deliveryFee - parseFloat(finalDeliveryFee);
+                  const isProfit = diff >= 0;
+                  return (
+                    <span>
+                      <span className="text-muted-foreground">Estimated {isProfit ? 'Profit' : 'Loss'}:</span>{' '}
+                      <strong className={isProfit ? 'text-green-600' : 'text-red-600'}>₦{Math.abs(diff).toLocaleString()}</strong>
+                    </span>
+                  );
+                })()}
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeliveryModal(null)}>Cancel</Button>
